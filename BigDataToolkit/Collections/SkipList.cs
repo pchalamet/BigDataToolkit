@@ -3,68 +3,65 @@
     using System;
     using System.Collections.Generic;
 
-    public class SkipList<K, V> where K : IComparable<K>
+    public partial class SkipList<TK, TV> where TK : IComparable<TK>
     {
-        private readonly IComparer<K> _keyComparer;
+        private readonly IComparer<TK> _keyComparer;
 
         private readonly Random _rnd = new Random(0);
 
         private Node _head;
 
         public SkipList()
-                : this(Comparer<K>.Default)
+                : this(Comparer<TK>.Default)
         {
         }
 
-        public SkipList(IComparer<K> comparer)
+        public SkipList(IComparer<TK> comparer)
         {
             _keyComparer = comparer;
-            _head = new Node(default(K), default(V), 1);
-            _head.Levels[0] = null;
+            _head = Node.Create(default(TK), default(TV), 1);
         }
 
-        public int Level
-        {
-            get { return _head.Levels.Length; }
-        }
-
-        public void Add(K key, V value)
+        public void Add(TK key, TV value)
         {
             Node[] updates = FindUpdates(key);
-            if (null != updates[0].Levels[0] && 0 == _keyComparer.Compare(updates[0].Levels[0].Key, key))
+            if (null != updates[0][0] && 0 == _keyComparer.Compare(updates[0][0].Key, key))
             {
                 updates[0].Value = value;
                 return;
             }
 
             // create and insert the node
-            Node node = new Node(key, value, ChooseRandomHeight());
-            int min = node.Levels.Length;
-            if (min > updates.Length)
+            Node node = Node.Create(key, value, ChooseRandomHeight());
+            int min = node.NbLevels;
+            if (updates.Length < min)
             {
                 min = updates.Length;
             }
 
             for (int i = 0; i < min; ++i)
             {
-                node.Levels[i] = updates[i].Levels[i];
-                updates[i].Levels[i] = node;
+                node[i] = updates[i][i];
+                updates[i][i] = node;
             }
 
             // update head level
-            if (node.Levels.Length > _head.Levels.Length)
+            if (node.NbLevels > _head.NbLevels)
             {
-                Node newHead = new Node(_head.Key, _head.Value, node.Levels.Length);
-                Array.Copy(_head.Levels, newHead.Levels, _head.Levels.Length);
-                newHead.Levels[_head.Levels.Length] = node;
+                Node newHead = Node.Create(_head.Key, _head.Value, node.NbLevels);
+                for (int i = 0; i < _head.NbLevels; ++i)
+                {
+                    newHead[i] = _head[i];
+                }
+                newHead[_head.NbLevels] = node;
                 _head = newHead;
             }
         }
 
-        public bool Remove(K key)
+        public bool Remove(TK key)
         {
             Node[] updates = FindUpdates(key);
-            Node node = updates[0].Levels[0];
+            Node node = updates[0][0];
             if (null == node || 0 != _keyComparer.Compare(node.Key, key))
             {
                 return false;
@@ -72,32 +69,35 @@
 
             for (int i = 0; i < updates.Length; ++i)
             {
-                if (i < node.Levels.Length)
+                if (i < node.NbLevels)
                 {
-                    updates[i].Levels[i] = node.Levels[i];
+                    updates[i][i] = node[i];
                 }
             }
 
-            if (1 < _head.Levels.Length && null == _head.Levels[_head.Levels.Length - 1])
+            if (1 < _head.NbLevels && null == _head[_head.NbLevels - 1])
             {
-                Node newHead = new Node(_head.Key, _head.Value, _head.Levels.Length - 1);
-                Array.Copy(_head.Levels, newHead.Levels, newHead.Levels.Length);
+                Node newHead = Node.Create(_head.Key, _head.Value, _head.NbLevels - 1);
+                for (int i = 0; i < _head.NbLevels - 1; ++i)
+                {
+                    newHead[i] = _head[i];
+                }
                 _head = newHead;
             }
 
             return true;
         }
 
-        public bool ContainsKey(K key)
+        public bool ContainsKey(TK key)
         {
             Node current = _head;
-            int level = current.Levels.Length - 1;
+            int level = current.NbLevels - 1;
             while (0 <= level)
             {
                 int cmp = -1;
-                while (null != current.Levels[level] && (cmp = _keyComparer.Compare(current.Levels[level].Key, key)) < 0)
+                while (null != current[level] && (cmp = _keyComparer.Compare(current[level].Key, key)) < 0)
                 {
-                    current = current.Levels[level];
+                    current = current[level];
                 }
 
                 if (0 == cmp)
@@ -111,16 +111,16 @@
             return false;
         }
 
-        private Node[] FindUpdates(K key)
+        private Node[] FindUpdates(TK key)
         {
-            Node[] updates = new Node[_head.Levels.Length];
+            Node[] updates = new Node[_head.NbLevels];
             Node current = _head;
-            int level = current.Levels.Length - 1;
+            int level = current.NbLevels - 1;
             while (0 <= level)
             {
-                while (null != current.Levels[level] && _keyComparer.Compare(current.Levels[level].Key, key) < 0)
+                while (null != current[level] && _keyComparer.Compare(current[level].Key, key) < 0)
                 {
-                    current = current.Levels[level];
+                    current = current[level];
                 }
 
                 updates[level] = current;
@@ -131,7 +131,7 @@
 
         protected int ChooseRandomHeight()
         {
-            int maxLevel = _head.Levels.Length;
+            int maxLevel = _head.NbLevels;
             int level = 0;
             while (_rnd.NextDouble() < 0.5 && level < maxLevel)
             {
@@ -139,22 +139,6 @@
             }
 
             return level + 1;
-        }
-
-        private class Node
-        {
-            public Node(K key, V value, int level)
-            {
-                Key = key;
-                Value = value;
-                Levels = new Node[level];
-            }
-
-            public K Key { get; private set; }
-
-            public V Value { get; set; }
-
-            public Node[] Levels { get; private set; }
         }
     }
 }
