@@ -1,4 +1,4 @@
-﻿namespace BigDataToolkit.Collections
+﻿namespace BigDataToolkit.Collections.Specialized
 {
     using System;
     using System.Collections;
@@ -39,6 +39,44 @@
 
         public int Count { get; private set; }
 
+        public void Clear()
+        {
+            _hashbits.SetAll(false);
+            Count = 0;
+        }
+
+        public bool Contains(byte[] buffer)
+        {
+            int[] hashKeys = CreateHashes(buffer);
+            foreach (int hash in hashKeys)
+            {
+                int bitOffset = Math.Abs(hash % Size);
+                if (!_hashbits.Get(bitOffset))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        public bool Add(byte[] buffer)
+        {
+            bool exists = true;
+            int[] hashKeys = CreateHashes(buffer);
+            foreach (int hash in hashKeys)
+            {
+                int bitOffset = Math.Abs(hash % Size);
+                exists &= _hashbits.Get(bitOffset);
+
+                _hashbits.Set(bitOffset, true);
+            }
+
+            ++Count;
+
+            return exists;
+        }
+
         private int[] CreateHashes(byte[] data)
         {
             int[] result = new int[NumberOfHashFunctions];
@@ -60,33 +98,6 @@
             }
 
             return result;
-        }
-
-        public bool Contains(byte[] buffer)
-        {
-            int[] hashKeys = CreateHashes(buffer);
-            foreach (int hash in hashKeys)
-            {
-                int bitOffset = Math.Abs(hash % Size);
-                if (!_hashbits.Get(bitOffset))
-                {
-                    return false;
-                }
-            }
-
-            return true;
-        }
-
-        public void Add(byte[] buffer)
-        {
-            int[] hashKeys = CreateHashes(buffer);
-            foreach (int hash in hashKeys)
-            {
-                int bitOffset = Math.Abs(hash % Size);
-                _hashbits.Set(bitOffset, true);
-            }
-
-            ++Count;
         }
     }
 }

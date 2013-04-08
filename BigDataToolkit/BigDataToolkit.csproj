@@ -41,7 +41,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Collections\BloomFilter.cs" />
+    <Compile Include="Collections\Specialized\BloomFilter.cs" />
     <Compile Include="Collections\SkipList.cs" />
     <Compile Include="Collections\SkipList_Node.cs" />
     <Compile Include="Cryptography\MurmurHash2.cs" />

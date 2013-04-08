@@ -3,6 +3,7 @@
     using System;
     using System.Collections.Generic;
     using BigDataToolkit.Collections;
+    using BigDataToolkit.Collections.Specialized;
     using BigDataToolkit.Cryptography;
 
     internal class BloomFilterSample
