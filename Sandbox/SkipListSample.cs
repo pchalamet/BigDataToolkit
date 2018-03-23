@@ -7,11 +7,11 @@
 
     internal class SkipListSample
     {
-        private const int MAX = 200000;
+        private const int MAX = 500000;
 
         private static void TestSkipList()
         {
-            Console.WriteLine("TestSkipList");
+            Console.WriteLine("=========== TestSkipList");
 
             SkipList<int, string> skipList = new SkipList<int, string>();
             Random rnd = new Random(0);
@@ -47,9 +47,7 @@
                 Console.Write("{0}\r", i);
 
                 int next = rnd.Next();
-                bool res = skipList.ContainsKey(next);
-                if (res)
-                {
+                if (skipList.TryGetValue(next, out var value)) {
                     Console.WriteLine("Bug");
                 }
             }
@@ -73,7 +71,7 @@
 
         private static void TestSortedSet()
         {
-            Console.WriteLine("TestSortedSet");
+            Console.WriteLine("=========== TestSortedSet");
 
             SortedSet<int> skipList = new SortedSet<int>();
             Random rnd = new Random(0);

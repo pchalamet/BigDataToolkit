@@ -93,7 +93,7 @@
                 for (int i = 0; i < digest.Length / 4 && k < NumberOfHashFunctions; i++)
                 {
                     result[k] = BitConverter.ToInt32(digest, i * 4);
-                    k++;
+                    ++k;
                 }
             }
 

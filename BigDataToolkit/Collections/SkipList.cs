@@ -2,12 +2,15 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Linq;
 
     public partial class SkipList<TK, TV> where TK : IComparable<TK>
     {
         private readonly IComparer<TK> _keyComparer;
 
         private readonly Random _rnd = new Random(0);
+
+        private int _levels;
 
         private Node _head;
 
@@ -19,126 +22,99 @@
         public SkipList(IComparer<TK> comparer)
         {
             _keyComparer = comparer;
-            _head = Node.Create(default(TK), default(TV), 1);
+            _head = Node.Create(default(TK), default(TV), 33);
+            _levels = 1;
         }
 
         public void Add(TK key, TV value)
         {
-            Node[] updates = FindUpdates(key);
-            if (null != updates[0][0] && 0 == _keyComparer.Compare(updates[0][0].Key, key))
+            var level = 0;
+            var r = _rnd.Next();
+            while (0 != (r & 1))
             {
-                updates[0].Value = value;
-                return;
+                ++level;
+                r >>= 1;
             }
+            if(level == _levels) 
+                _levels++;
 
-            // create and insert the node
-            Node node = Node.Create(key, value, ChooseRandomHeight());
-            int min = node.NbLevels;
-            if (updates.Length < min)
+            // Insert this node into the skip list
+            var newNode = Node.Create(key, value, level + 1);
+            var cur = _head;
+            for (var i = _levels - 1; 0 <= i; --i)
             {
-                min = updates.Length;
-            }
-
-            for (int i = 0; i < min; ++i)
-            {
-                node[i] = updates[i][i];
-                updates[i][i] = node;
-            }
-
-            // update head level
-            if (node.NbLevels > _head.NbLevels)
-            {
-                Node newHead = Node.Create(_head.Key, _head.Value, node.NbLevels);
-                for (int i = 0; i < _head.NbLevels; ++i)
+                while (null != cur.Next[i])
                 {
-                    newHead[i] = _head[i];
+                    var cmp = _keyComparer.Compare(cur.Next[i].Key, key);
+                    if (0 < cmp)
+                    {
+                        break;
+                    }
+
+                    cur = cur.Next[i];
                 }
-                newHead[_head.NbLevels] = node;
-                _head = newHead;
+
+                if (i <= level) 
+                { 
+                    newNode.Next[i] = cur.Next[i]; 
+                    cur.Next[i] = newNode; 
+                }
             }
         }
 
         public bool Remove(TK key)
         {
-            Node[] updates = FindUpdates(key);
-            Node node = updates[0][0];
-            if (null == node || 0 != _keyComparer.Compare(node.Key, key))
+            var cur = _head;
+            var found = false;
+            for (var i = _levels - 1; 0 <= i; --i)
             {
-                return false;
-            }
-
-            for (int i = 0; i < updates.Length; ++i)
-            {
-                if (i < node.NbLevels)
+                while (null != cur.Next[i])
                 {
-                    updates[i][i] = node[i];
+                    var cmp = _keyComparer.Compare(cur.Next[i].Key, key);
+                    if (0 < cmp)
+                    {
+                        break;
+                    }
+
+                    if (0 == cmp)
+                    {
+                        found = true;
+                        cur.Next[i] = cur.Next[i].Next[i];
+                        break;
+                    }
+
+                    cur = cur.Next[i];
                 }
             }
 
-            if (1 < _head.NbLevels && null == _head[_head.NbLevels - 1])
-            {
-                Node newHead = Node.Create(_head.Key, _head.Value, _head.NbLevels - 1);
-                for (int i = 0; i < _head.NbLevels - 1; ++i)
-                {
-                    newHead[i] = _head[i];
-                }
-                _head = newHead;
-            }
-
-            return true;
+            return found;
         }
 
-        public bool ContainsKey(TK key)
+        public bool TryGetValue(TK key, out TV value)
         {
-            Node current = _head;
-            int level = current.NbLevels - 1;
-            while (0 <= level)
+            var cur = _head;
+            for (var i = _levels - 1; 0 <= i; --i)
             {
-                int cmp = -1;
-                while (null != current[level] && (cmp = _keyComparer.Compare(current[level].Key, key)) < 0)
+                while (null != cur.Next[i])
                 {
-                    current = current[level];
-                }
+                    var cmp = _keyComparer.Compare(cur.Next[i].Key, key);
+                    if (0 < cmp) 
+                    {
+                        break;
+                    }
 
-                if (0 == cmp)
-                {
-                    return true;
-                }
+                    if (0 == cmp)
+                    {
+                        value = cur.Next[i].Value; 
+                        return true;
+                    }
 
-                --level;
+                    cur = cur.Next[i];
+                }
             }
 
+            value = default(TV);
             return false;
-        }
-
-        private Node[] FindUpdates(TK key)
-        {
-            Node[] updates = new Node[_head.NbLevels];
-            Node current = _head;
-            int level = current.NbLevels - 1;
-            while (0 <= level)
-            {
-                while (null != current[level] && _keyComparer.Compare(current[level].Key, key) < 0)
-                {
-                    current = current[level];
-                }
-
-                updates[level] = current;
-                --level;
-            }
-            return updates;
-        }
-
-        protected int ChooseRandomHeight()
-        {
-            int maxLevel = _head.NbLevels;
-            int level = 0;
-            while (_rnd.NextDouble() < 0.5 && level < maxLevel)
-            {
-                level++;
-            }
-
-            return level + 1;
         }
     }
 }
